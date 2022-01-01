@@ -1,0 +1,96 @@
+#include <ESP8266WiFi.h>
+#include "AdafruitIO_WiFi.h"
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
+ 
+#define WLAN_SSID       "Wifi_name"
+#define WLAN_PASS       "Wifi_password"
+
+#define AIO_SERVER "io.adafruit.com"
+#define AIO_SERVERPORT 1883
+#define AIO_USERNAME    "adafruit_username"
+#define AIO_KEY         "adafruit_key"
+ 
+WiFiClient client;
+Adafruit_MQTT_Client mqtt(&client,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_KEY);
+Adafruit_MQTT_Publish infrared = Adafruit_MQTT_Publish(&mqtt,AIO_USERNAME "/feeds/infrared");
+
+ 
+
+
+#define pin 16 //use pin D0 to take input from IR sensor
+
+int sensor = 16;
+
+
+void MQTT_connect();
+
+int val = 0;
+void setup() {
+  Serial.begin(9600);
+  delay(10);
+  
+  Serial.println(F("Adafruit MQTT publish"));
+
+  Serial.println();Serial.println();
+  Serial.print("Connecting to: ");
+  Serial.println(WLAN_SSID);
+
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
+  while (WiFi.status() != WL_CONNECTED){
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  Serial.println("WiFi connected");
+  Serial.println("IP addresss: ");
+  Serial.println(WiFi.localIP());
+  
+  pinMode(sensor,INPUT); 
+  
+}
+
+
+void loop() {
+  MQTT_connect();
+
+  int sensorVal = digitalRead(sensor);
+  Serial.print(F("\nSending IR sensor val "));
+  Serial.print(sensorVal);
+  Serial.print("...");
+  if (! infrared.publish(sensorVal)) {
+    Serial.println(F("Failed"));
+  }
+  else {
+    Serial.println(F("OK!"));
+  }
+
+  delay(2500);
+  
+}
+
+void MQTT_connect() {
+  int8_t ret;
+
+  // Stop if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
+
+Serial.print("Connecting to MQTT... ");
+
+uint8_t retries = 3;
+while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       Serial.println(mqtt.connectErrorString(ret));
+       Serial.println("Retrying MQTT connection in 5 seconds...");
+       mqtt.disconnect();
+       delay(5000);  // wait 5 seconds
+       retries--;
+       if (retries == 0) {
+         // basically die and wait for WDT to reset me
+         while (1);
+       }
+  }
+  Serial.println("MQTT Connected!");
+}
